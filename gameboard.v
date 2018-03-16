@@ -67,7 +67,7 @@ endmodule
 
 module gameboard_datapath(
   input clk,
-  input load_x, load_y, load_c, reset,
+  input load_x, load_y, reset, load_c, en_xc,
   input [7:0] x_in,
   input [6:0] y_in,
   input [2:0] color_in,
@@ -75,59 +75,63 @@ module gameboard_datapath(
   output [6:0] y_out,
   output reg [2:0] color_out
   );
-  wire [7:0] x_target;
-  wire [6:0] y_target;
-  assign x_target = x_in + 5'b10011; //this gives the x coordinate of right endpoints
-  assign y_target = y_in + 4'b1110; //this gives the y coordinate of left endpoints
-// x and y counters  19 x 14
+  wire x_at_target;
+
+// load color if not in reset mode
   always @(posedge clk) begin
     if (!reset)
       color_out <= 0;
-    else if (load_c)
+    else if (load_c == 1)
       color_out <= color_in;
   end
+// x and y counters  19 x 14
   x_counter xc(
     .clk(clk),
     .load_x(load_x),
     .reset(reset),
+    .en(en_xc),
     .x_in(x_in),
-    .x_out(x_out)
+    .x_out(x_out),
+    .x_at_target(x_at_target)
     );
   y_counter yc(
     .clk(clk),
     .load_y(load_y),
     .reset(reset),
+    .en(x_at_target),
     .y_in(y_in),
-    .color_in(color_in),
     .y_out(y_out),
-    .color_out(color_out)
     );
 endmodule
 
 module x_counter(
 	input clk,
-	input load_x, reset,
+	input load_x, reset, en,
 	input [7:0] x_in,
-	output reg [7:0] x_out
+	output reg [7:0] x_out,
+  output reg x_at_target
 	);
 	wire [7:0] x_target;
 	assign x_target = x_in + 5'b10011;
 	always @(posedge clk) begin
 		if (!reset)
 			x_out <= 0;
+      x_at_target <= 0;
 		else if (load_x)
 			x_out <= x_in;
 		else if (en == 1) begin
 			if (x == x_target)
 				x <= 0;
+        x_at_target <= 1;
 			else
 				x <= x + 1;
+        x_at_target <= 0;
 		end
 	end
 endmodule
 module y_counter(
 	input clk,
-	input load_y, reset,
+	input load_y, reset, en,
 	input [6:0] y_in,
 	output reg [6:0] y_out
 	);
