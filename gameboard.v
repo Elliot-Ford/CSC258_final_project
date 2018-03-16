@@ -106,47 +106,38 @@ endmodule
 
 module x_counter(
 	input clk,
-	input load_x, reset, en,
-	input [7:0] x_in,
-	output reg [7:0] x_out,
-  output reg x_at_target
+	input reset, en,
+	input [4:0] x_in,
+	output reg [4:0] x_out
 	);
-	wire [7:0] x_target;
-	assign x_target = x_in + 5'b10011;
 	always @(posedge clk) begin
-		if (!reset)
+		if (!reset) begin
 			x_out <= 0;
-      x_at_target <= 0;
-		else if (load_x)
+      end
+		else if (load_x) begin
 			x_out <= x_in;
+      end
 		else if (en == 1) begin
-			if (x == x_target)
-				x <= 0;
-        x_at_target <= 1;
-			else
-				x <= x + 1;
-        x_at_target <= 0;
+				x_out <= x + 1;
 		end
 	end
 endmodule
+
 module y_counter(
 	input clk,
 	input load_y, reset, en,
-	input [6:0] y_in,
-	output reg [6:0] y_out
+	input [2:0] y_in,
+	output reg [2:0] y_out
 	);
-	wire [6:0] y_target;
-	assign y_target = y_in + 4'b1110;
 	always @(posedge clk) begin
-		if (!reset)
+		if (!reset) begin
 			y_out <= 0;
-		else if (load_y)
+      end
+		else if (load_y) begin
 			y_out <= 0;
+      end
 		else if (en == 1) begin
-		 	if (y == y_target)
-				y <= 0;
-			else
-				y <= y + 1;
+				y_out <= y + 1;
 		end
 	end
 endmodule
