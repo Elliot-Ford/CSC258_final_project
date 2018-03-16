@@ -31,23 +31,23 @@ module part2
 	output	[9:0]	VGA_R;   				//	VGA Red[9:0]
 	output	[9:0]	VGA_G;	 				//	VGA Green[9:0]
 	output	[9:0]	VGA_B;   				//	VGA Blue[9:0]
-	
+
 	wire resetn;
 	assign resetn = KEY[0];
-	
+
 	// Create the colour, x, y and writeEn wires that are inputs to the controller.
 	wire [2:0] colour;
 	wire [7:0] x;
 	wire [6:0] y;
 	wire writeEn;
-	
+
 	wire original_x;
 	reg [7:0] x_in;
 
 	// wires for controller output:
 	wire ld_x, ld_y, ld_alu_x, ld_alu_y, select_alu_a;
 
-	
+
 
 	// register for X & wire for this register
 	assign original_x = {1'b0, SW[6:0]};
@@ -80,11 +80,11 @@ module part2
 		defparam VGA.MONOCHROME = "FALSE";
 		defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
 		defparam VGA.BACKGROUND_IMAGE = "black.mif";
-			
+
 	// Put your code here. Your code should produce signals x,y,colour and writeEn/plot
 	// for the VGA controller, in addition to any other functionality your design may require.
-	
-	
+
+
     // Instansiate datapath
 	// datapath d0(...);
 	datapath d0(
@@ -123,7 +123,7 @@ module control(
 	output reg plot
 	);
 	reg [4:0] current_state, next_state;
-	
+
     	localparam	S_LOAD          = 5'd0,
 		  	S_LOAD_WAIT     = 5'd1,
                   	S_CYCLE_0       = 5'd2,
@@ -159,12 +159,12 @@ module control(
 		    S_CYCLE_1: next_state = S_CYCLE_2;
 		    S_CYCLE_2: next_state = S_CYCLE_3;
 		    S_CYCLE_3: next_state = S_CYCLE_4;
-		    S_CYCLE_4: next_state = S_CYCLE_5; 
+		    S_CYCLE_4: next_state = S_CYCLE_5;
 		    S_CYCLE_5: next_state = S_CYCLE_6;
 		    S_CYCLE_6: next_state = S_CYCLE_7;
 		    S_CYCLE_7: next_state = S_CYCLE_8;
 		    S_CYCLE_8: next_state = S_CYCLE_9;
-		    S_CYCLE_9: next_state = S_CYCLE_10; 
+		    S_CYCLE_9: next_state = S_CYCLE_10;
 		    S_CYCLE_10: next_state = S_CYCLE_11;
 		    S_CYCLE_11: next_state = S_CYCLE_12;
 		    S_CYCLE_12: next_state = S_CYCLE_13;
@@ -174,11 +174,11 @@ module control(
 		    S_CYCLE_16: next_state = S_CYCLE_17;
 		    S_CYCLE_17: next_state = S_CYCLE_18;
 		    S_CYCLE_18: next_state = S_LOAD; // After 16 plots, start over
-		    //S_CYCLE_19: next_state = S_LOAD; 
+		    //S_CYCLE_19: next_state = S_LOAD;
 		    default: next_state = S_LOAD;
 		endcase
 	end // state_table
-	
+
 	//Oututput logic aka all of our datapath control signals
 	always @(*)
 	begin: enable_signals
@@ -209,7 +209,7 @@ module control(
 				ld_x = 1;
 				ld_y = 0;
 				select_alu_a = 1;
-				plot = 1;		
+				plot = 1;
 			end
 			S_CYCLE_4, S_CYCLE_9, S_CYCLE_14: begin
 				ld_alu_x = 0;
@@ -224,23 +224,104 @@ module control(
 	//current state registers
 	always @(posedge clk)
 	begin: state_FFs
-		if (!resetn) 
+		if (!resetn)
 			current_state <= S_LOAD;
 		else
 			current_state <= next_state;
 	end //state_FFs
 endmodule
 
+module datapath_counter(
+	input clk,
+	input load_x, load_y, load_c, reset,
+	input [7:0] x_in,
+	input [6:0] y_in,
+	input [2:0] color_in,
+	output [7:0] x_out,
+	output [6:0] y_out,
+	output reg [2:0] color_out
+	);
+	wire [7:0] x_target;
+	wire [6:0] y_target;
+	assign x_target = x_in + 5'b10011; //this gives the x coordinate of right endpoints
+	assign y_target = y_in + 4'b1110; //this gives the y coordinate of left endpoints
+// x and y counters  19 x 14
+	always @(posedge clk) begin
+		if (!reset)
+			color_out <= 0;
+		else if (load_c)
+			color_out <= color_in;
+	end
+	x_counter xc(
+		.clk(clk),
+		.load_x(load_x),
+		.reset(reset),
+		.x_in(x_in),
+		.x_out(x_out)
+		);
+	y_counter yc(
+		.clk(clk),
+		.load_y(load_y),
+		.reset(reset),
+		.y_in(y_in),
+		.color_in(color_in),
+		.y_out(y_out),
+		.color_out(color_out)
+		);
+endmodule
+module x_counter(
+	input clk,
+	input load_x, reset,
+	input [7:0] x_in,
+	output reg [7:0] x_out
+	);
+	wire [7:0] x_target;
+	assign x_target = x_in + 5'b10011;
+	always @(posedge clk) begin
+		if (!reset)
+			x_out <= 0;
+		else if (load_x)
+			x_out <= x_in;
+		else if (en == 1) begin
+			if (x == x_target)
+				x <= 0;
+			else
+				x <= x + 1;
+		end
+	end
+endmodule
+
+module y_counter(
+	input clk,
+	input load_y, reset,
+	input [6:0] y_in,
+	output reg [6:0] y_out
+	);
+	wire [6:0] y_target;
+	assign y_target = y_in + 4'b1110;
+	always @(posedge clk) begin
+		if (!reset)
+			y_out <= 0;
+		else if (load_y)
+			y_out <= 0;
+		else if (en == 1) begin
+		 	if (y == y_target)
+				y <= 0;
+			else
+				y <= y + 1;
+		end
+	end
+endmodule
 module datapath(
 	input clk,
 	input load_x, load_y, ld_alu_x, ld_alu_y, select_alu_a, reset,
 	input [7:0] x_in,
-	input [6:0] y_in,	
+	input [6:0] y_in,
 	input [2:0] color_in,
 	output reg [7:0] x_out,
 	output reg [6:0] y_out,
 	output reg [2:0] color_out);
-	
+
 	reg [6:0] alu_out;
 	reg [6:0] alu_a;
 
@@ -259,7 +340,8 @@ module datapath(
 			y_out <= ld_alu_y ? alu_out : y_in;
 			color_out <= color_in;
 		end
-	end	
+	end
+
 	// alu_a input multiplexer
 	always @(*)
 	begin
@@ -272,19 +354,5 @@ module datapath(
 	always @(*)
 	begin: ALU
 		alu_out <= alu_a + 1;
-	end		
+	end
 endmodule
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
