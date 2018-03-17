@@ -67,7 +67,7 @@ endmodule
 
 module gameboard_datapath(
   input clk,
-  input load_x, load_y, reset, load_c, en_xc,
+  input load_x, load_y, reset, load_c, en_c,
   input [7:0] x_in,
   input [6:0] y_in,
   input [2:0] color_in,
@@ -75,50 +75,70 @@ module gameboard_datapath(
   output [6:0] y_out,
   output reg [2:0] color_out
   );
-  wire x_at_target;
 
-// load color if not in reset mode
-  always @(posedge clk) begin
-    if (!reset)
-      color_out <= 0;
-    else if (load_c == 1)
-      color_out <= color_in;
-  end
+  wire en_y;
+  wire reset_count;
+  wire [4:0] x_count_out;
+  wire [3:0] y_count_out;
+  assign en_y = ~x_count_out[0] & // should increment y when x = 18
+                 x_count_out[1] &
+                ~x_count_out[2] &
+                ~x_count_out[3] &
+                 x_count_out[4];
+  assign reset_count =  y_count_out[0] & // should reset itself when y = 13
+                       ~y_count_out[1] &
+                        y_count_out[2] &
+                        y_count_out[3];
+
+  assign x_out = x_in + {3'b00, x_count_out};
+  assign y_out = y_in + {3'b00, y_count_out};
 // x and y counters  19 x 14
   x_counter xc(
     .clk(clk),
     .load_x(load_x),
-    .reset(reset),
-    .en(en_xc),
-    .x_in(x_in),
-    .x_out(x_out),
-    .x_at_target(x_at_target)
+    .reset(reset & ~ en_y),
+    .en(en_c),
+    .x_in(5'b00000),
+    .x_out(x_count_out)
     );
+
   y_counter yc(
     .clk(clk),
     .load_y(load_y),
-    .reset(reset),
-    .en(x_at_target),
-    .y_in(y_in),
-    .y_out(y_out),
+    .reset(reset & ~ reset_count),
+    .en(en_y),
+    .y_in(4'b000),
+    .y_out(y_count_out)
     );
+
+    // load color if not in reset mode
+      always @(posedge clk) begin
+        if (!reset)
+          color_out <= 3'b0;
+        else if (load_c == 1)
+          color_out <= color_in;
+        else
+          color_out <= color_out;
+      end
+
+
 endmodule
 
 module x_counter(
 	input clk,
-	input reset, en,
+	input load_x, reset, en,
 	input [4:0] x_in,
 	output reg [4:0] x_out
 	);
 	always @(posedge clk) begin
 		if (!reset) begin
-			x_out <= 0;
+			x_out <= 5'b0;
       end
 		else if (load_x) begin
 			x_out <= x_in;
       end
-		else if (en == 1) begin
-				x_out <= x + 1;
+		else if (en) begin
+				x_out <= x_out + 1;
 		end
 	end
 endmodule
@@ -126,18 +146,18 @@ endmodule
 module y_counter(
 	input clk,
 	input load_y, reset, en,
-	input [2:0] y_in,
-	output reg [2:0] y_out
+	input [3:0] y_in,
+	output reg [3:0] y_out
 	);
 	always @(posedge clk) begin
 		if (!reset) begin
-			y_out <= 0;
+			y_out <= 4'b0;
       end
 		else if (load_y) begin
 			y_out <= 0;
       end
-		else if (en == 1) begin
-				y_out <= y + 1;
+		else if (en) begin
+				y_out <= y_out + 1;
 		end
 	end
 endmodule
@@ -205,7 +225,7 @@ module tile_control(
     ld_x = 1'b0;
     ld_y = 1'b0;
 		en_xc = 1'b0;
-		en_yc = 1'b0;
+		// en_yc = 1'b0;
     ld_color = 1'b0;
     writeEn = 1'b0;
 
@@ -237,8 +257,6 @@ module tile_control(
       S_CYCLE_15:// row 4
       begin //  start shift down the y axis
         ld_x = 1'b1;
-        ld_y
-				en_yc = 1'b1;
         writeEn = 1'b1;
         end
     endcase
