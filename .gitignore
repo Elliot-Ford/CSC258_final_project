@@ -28,9 +28,11 @@ vsim.dbg
 vga*.v
 *.qpf
 *.qsf
+*.qws
 c5_pin_model_dump.txt
 output_files/*
 simulation/*
 db/*
 incremental_db/*
 work/*
+vga_adapter/*
