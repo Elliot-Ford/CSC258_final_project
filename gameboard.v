@@ -1,63 +1,34 @@
-module gameboard_top(
-    input CLOCK_50,         // On Board 50 MHz
-    // Board inputs
-    input [9:0] KEY,
-    // The ports below are for the VGA output.
-    output VGA_CLK,         // VGA Clock
-    output VGA_HS,          // VGA H_SYNC
-    output VGA_VS,          // VGA V_SYNC
-    output VGA_BLANK_N,     // VGA BLANK
-    output VGA_SYNC_N,      // VGA SYNC
-    output [9:0] VGA_R,     // VGA Red[9:0]
-    output [9:0] VGA_G,     // VGA Green[9:0]
-    output [9:0] VGA_B     // VGA Blue[9:0]
-  );
-
-    wire resetn;
-    assign resetn = KEY[0];
-
-    /*
-     * Create an instance of a VGA controller
-     * Define the number of colors as well as the initial background
-     * image file (.MIF) for the controller
-     */
-    vga_adapter VGA(
-      .reset(resetn),
-      .clock(CLOCK_50),
-      .color(color),
-      .x(x),
-      .y(y),
-      .plot(writeEn),
-      // Signals for the DAC to drive the monitor
-      .VGA_R(VGA_R),
-      .VGA_G(VGA_G),
-      .VGA_B(VGA_B),
-      .VGA_HS(VGA_HS),
-      .VGA_VS(VGA_VS),
-      .VGA_BLANK(VGA_BLANK_N),
-      .VGA_SYNC(VGA_SYNC_N),
-      .VGA_CLK(VGA_CLK)
-    );
-    defparam VGA.RESOLUTION = "160X120";
-    defparam VGA.MONOCHROME = "FALSE";
-    defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
-    defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
-    defparam VGA.BACKGROUND_IMAGE = "gameboard.mif";
-
-
-
-
-
-
-endmodule
-
 module gameboard(
   input clk,
+  input resetn,
   input [63:0] mineMap,
   input [63:0] flagMap,
-  input [63:0] stepMap
+  input [63:0] stepMap,
+  output [7:0] x,
+  output [6:0] y,
+  output [2:0] color,
+  output [0:0] en
   );
 
+  wire [2:0] status;
+  wire [5:0] tile_n;
+  assign en = 1;
+
+  tile_report tr(
+    .tile_n(tile_n),
+    .mineMap(mineMap),
+    .flagMap(flagMap),
+    .stepMap(stepMap),
+    .status(color)
+    );
+
+    gameboard_shape gs(
+      .clk(clk),
+      .reset(resetn),
+      .x_out(x),
+      .y_out(y),
+      .tile_n(tile_n)
+      );
 endmodule
 
 module tile_position(
@@ -74,9 +45,9 @@ endmodule
 
 module tile_report(
   input [5:0] tile_n,
-  input reg [63:0] mineMap,
-  input reg [63:0] flagMap,
-  input reg [63:0] stepMap,
+  input [63:0] mineMap,
+  input [63:0] flagMap,
+  input [63:0] stepMap,
 
   output reg [2:0] status // status[2] mined, status[1] flagged, status[1] stepped
   );
@@ -97,11 +68,10 @@ endmodule
 
 module gameboard_shape(
   input clk,
-  input load_x, load_y, reset, load_c, en_c, shape_drawn,
-  input [7:0] x_in,
-  input [6:0] y_in,
+  input en_c, reset,
   output [7:0] x_out,
-  output [6:0] y_out
+  output [6:0] y_out,
+  output [5:0] tile_n
   );
 
   wire en_y;
@@ -111,6 +81,7 @@ module gameboard_shape(
   wire [4:0] x_count_out;
   wire [3:0] y_count_out;
   wire [5:0] tile_count_out;
+  assign tile_n = tile_count_out;
   assign en_y = ~x_count_out[0] & // should increment y when x = 18
                  x_count_out[1] &
                 ~x_count_out[2] &
@@ -126,8 +97,6 @@ module gameboard_shape(
                         ~x_count_out[3] &
                          x_count_out[4];
 
-  assign shape_drawn = reset_count;
-
   assign x_out = x_origin + {2'b00, x_count_out};
   assign y_out = y_origin + {3'b00, y_count_out};
 
@@ -140,7 +109,6 @@ tile_position tp(
 // x and y counters  19 x 14
   x_counter xc(
     .clk(clk),
-    .load_x(load_x),
     .reset(reset & ~ en_y),
     .en(en_c),
     .x_in(5'b00000),
@@ -149,7 +117,6 @@ tile_position tp(
 
   y_counter yc(
     .clk(clk),
-    .load_y(load_y),
     .reset(reset & ~ reset_count),
     .en(en_y),
     .y_in(4'b000),

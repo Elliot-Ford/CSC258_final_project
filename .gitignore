@@ -26,3 +26,11 @@ vsim.dbg
 ### end of template
 
 vga*.v
+*.qpf
+*.qsf
+c5_pin_model_dump.txt
+output_files/*
+simulation/*
+db/*
+incremental_db/*
+work/*
