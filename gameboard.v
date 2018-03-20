@@ -4,31 +4,67 @@ module gameboard(
   input [63:0] mineMap,
   input [63:0] flagMap,
   input [63:0] stepMap,
+  input [63:0] posMap,
   output [7:0] x,
   output [6:0] y,
   output [2:0] color,
   output [0:0] en
   );
 
-  wire [2:0] status;
+  wire [3:0] status;
   wire [5:0] tile_n;
+  wire [5:0] x_count;
+  wire [4:0] y_count;
   assign en = 1;
-
+  // assign color = status;
   tile_report tr(
     .tile_n(tile_n),
     .mineMap(mineMap),
     .flagMap(flagMap),
     .stepMap(stepMap),
-    .status(color)
+    .posMap(posMap),
+    .status(status)
     );
+
+    pixel_color pc(
+      .status(status),
+      .x(x_count),
+      .y(y_count),
+      .color(color)
+      );
 
     gameboard_shape gs(
       .clk(clk),
       .reset(resetn),
       .x_out(x),
       .y_out(y),
-      .tile_n(tile_n)
+      .tile_n(tile_n),
+      .en_c(1'b1)
       );
+endmodule
+
+module pixel_color(
+  input [3:0] status,
+  input [5:0] x,
+  input [4:0] y,
+  output reg [2:0] color
+  );
+
+  always @(*)
+  begin
+    if(status[3] == 1'b1 && (((x < 5 || x > 13) && (y == 0 || y == 13))
+      || ((x == 0 || x == 18)&& (y < 5 || y > 9))))
+      color = 3'b011;
+    else if (status[0] == 1'b1 && status[2] == 1'b1)
+      color = 3'b100;
+    else if (status[0] == 1'b1)
+      color = 3'b010;
+    else if (status[1] == 1'b1)
+      color = 3'b101;
+    else
+      color = 3'b000;
+  end
+
 endmodule
 
 module tile_position(
@@ -48,27 +84,26 @@ module tile_report(
   input [63:0] mineMap,
   input [63:0] flagMap,
   input [63:0] stepMap,
+  input [63:0] posMap,
 
-  output reg [2:0] status // status[2] mined, status[1] flagged, status[1] stepped
+  output reg [3:0] status // status[2] mined, status[1] flagged, status[1] stepped
   );
   integer tile_int;
   always @(*) begin: ini_status
-  status = 3'b0; //initialize status to be 000
-    case (tile_n)
-      000000, 000001, 000010, 000011, 000100, 000101, 000110, 000111, 001000, 001001, 001010, 001011, 001100, 001101, 001110, 001111, 010000, 010001, 010010, 010011, 010100, 010101, 010110, 010111, 011000, 011001, 011010, 011011, 011100, 011101, 011110, 011111, 100000, 100001, 100010, 100011, 100100, 100101, 100110, 100111, 101000, 101001, 101010, 101011, 101100, 101101, 101110, 101111, 110000, 110001, 110010, 110011, 110100, 110101, 110110, 110111, 111000, 111001, 111010, 111011, 111100, 111101, 111110, 111111:
-      begin
+  status = 4'b0; //initialize status to be 000
         tile_int = tile_n;
+        status[3] = posMap[tile_int];
         status[2] = mineMap[tile_int];
         status[1] = flagMap[tile_int];
         status[0] = stepMap[tile_int];
-      end
-    endcase
   end
 endmodule
 
 module gameboard_shape(
   input clk,
   input en_c, reset,
+  output [4:0] x_count,
+  output [3:0] y_count,
   output [7:0] x_out,
   output [6:0] y_out,
   output [5:0] tile_n
@@ -78,27 +113,24 @@ module gameboard_shape(
   wire reset_count;
   wire [7:0] x_origin;
   wire [6:0] y_origin;
-  wire [4:0] x_count_out;
-  wire [3:0] y_count_out;
   wire [5:0] tile_count_out;
-  assign tile_n = tile_count_out;
-  assign en_y = ~x_count_out[0] & // should increment y when x = 18
-                 x_count_out[1] &
-                ~x_count_out[2] &
-                ~x_count_out[3] &
-                 x_count_out[4];
-  assign reset_count =  ~y_count_out[0] & // should reset itself when y = 13
-                       ~y_count_out[1] &
-                        y_count_out[2] &
-                        y_count_out[3] &
-                        ~x_count_out[0] & // should increment y when x = 18
-                         x_count_out[1] &
-                        ~x_count_out[2] &
-                        ~x_count_out[3] &
-                         x_count_out[4];
+  assign en_y = ~x_count[0] & // should increment y when x = 18
+                 x_count[1] &
+                ~x_count[2] &
+                ~x_count[3] &
+                 x_count[4];
+  assign reset_count =  ~y_count[0] & // should reset itself when y = 13
+                       ~y_count[1] &
+                        y_count[2] &
+                        y_count[3] &
+                        ~x_count[0] & // should increment y when x = 18
+                         x_count[1] &
+                        ~x_count[2] &
+                        ~x_count[3] &
+                         x_count[4];
 
-  assign x_out = x_origin + {2'b00, x_count_out};
-  assign y_out = y_origin + {3'b00, y_count_out};
+  assign x_out = x_origin + {2'b00, x_count};
+  assign y_out = y_origin + {3'b00, y_count};
 
 tile_position tp(
   .tile(tile_count_out),
@@ -112,7 +144,7 @@ tile_position tp(
     .reset(reset & ~ en_y),
     .en(en_c),
     .x_in(5'b00000),
-    .x_out(x_count_out)
+    .x_out(x_count)
     );
 
   y_counter yc(
@@ -120,7 +152,7 @@ tile_position tp(
     .reset(reset & ~ reset_count),
     .en(en_y),
     .y_in(4'b000),
-    .y_out(y_count_out)
+    .y_out(y_count)
     );
 
   tile_counter tilec(
@@ -128,7 +160,7 @@ tile_position tp(
     .load_tile(load_tile),
     .reset(reset),
     .en(reset_count),
-    .tile_out(tile_count_out)
+    .tile_out(tile_n)
     );
 endmodule
 

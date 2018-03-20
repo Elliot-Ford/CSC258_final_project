@@ -2,7 +2,7 @@ vlib work
 
 vlog -timescale 1ns/1ns gameboard.v
 
-vsim gameboard_shape
+vsim gameboard_datapath
 
 log {/*}
 

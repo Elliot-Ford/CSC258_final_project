@@ -1,0 +1,24 @@
+vlib work
+
+vlog -timescale 1ns/1ns gameboard.v
+
+vsim gameboard
+
+log {/*}
+
+add wave {/*}
+
+# reset the datapath and start clock
+force {clk} 1 1, 0 {10ns} -repeat 20ns
+force {resetn}   0
+force {mineMap} 1111111111111111111111111111111111111111111111111111111111111111
+force {flagMap} 0000000000000000000000000000000000000000000000000000000000000000
+force {stepMap} 1111111111111111111111111111111111111111111111111111111111111111
+force {posMap}  1111111111111111111111111111111111111111111111111111111111111111
+force {x}   00000000
+force {x_count} 00000
+force {y_count} 0000
+force {y}   0000000
+run 20ns
+force {resetn}   1
+run 40020ns
