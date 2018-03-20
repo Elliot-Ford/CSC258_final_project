@@ -13,8 +13,8 @@ module gameboard(
 
   wire [3:0] status;
   wire [5:0] tile_n;
-  wire [5:0] x_count;
-  wire [4:0] y_count;
+  wire [4:0] x_count;
+  wire [3:0] y_count;
   assign en = 1;
   // assign color = status;
   tile_report tr(
@@ -36,6 +36,8 @@ module gameboard(
     gameboard_shape gs(
       .clk(clk),
       .reset(resetn),
+      .x_count(x_count),
+      .y_count(y_count),
       .x_out(x),
       .y_out(y),
       .tile_n(tile_n),
@@ -45,8 +47,8 @@ endmodule
 
 module pixel_color(
   input [3:0] status,
-  input [5:0] x,
-  input [4:0] y,
+  input [4:0] x,
+  input [3:0] y,
   output reg [2:0] color
   );
 
@@ -113,7 +115,6 @@ module gameboard_shape(
   wire reset_count;
   wire [7:0] x_origin;
   wire [6:0] y_origin;
-  wire [5:0] tile_count_out;
   assign en_y = ~x_count[0] & // should increment y when x = 18
                  x_count[1] &
                 ~x_count[2] &
@@ -133,7 +134,7 @@ module gameboard_shape(
   assign y_out = y_origin + {3'b00, y_count};
 
 tile_position tp(
-  .tile(tile_count_out),
+  .tile(tile_n),
   .x(x_origin),
   .y(y_origin)
   );
@@ -157,7 +158,6 @@ tile_position tp(
 
   tile_counter tilec(
     .clk(clk),
-    .load_tile(load_tile),
     .reset(reset),
     .en(reset_count),
     .tile_out(tile_n)
@@ -204,17 +204,13 @@ endmodule
 
 module tile_counter(
 	input clk,
-	input load_tile, reset, en,
+	input reset, en,
 	output reg [5:0] tile_out
 	);
 	always @(posedge clk) begin
-		if (!reset) begin
+		if (!reset)
 			tile_out <= 6'b0;
-      end
-		else if (en) begin
+		else if (en)
 				tile_out <= tile_out + 1;
-		end
-    else
-      tile_out <= tile_out;
-	end
+  end
 endmodule
