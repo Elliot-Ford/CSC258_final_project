@@ -60,12 +60,42 @@ module gameboard(
 
 endmodule
 
-module gameboard_control(
-
+module tile_position(
+  input [5:0] tile,
+  output [7:0] x,
+  output [6:0] y
   );
+
+  // based on the tile number, x and y should give the screen location of that timescale
+  assign x = (tile[2:0] << 2) + (tile[2:0] << 4);
+  assign y = (tile[5:3] << 3) + (tile[5:3] << 2) + (tile[5:3] << 1) + tile[5:3];
+
 endmodule
 
-module gameboard_datapath(
+module tile_report(
+  input [5:0] tile_n,
+  input reg [63:0] mineMap,
+  input reg [63:0] flagMap,
+  input reg [63:0] stepMap,
+
+  output reg [2:0] status // status[2] mined, status[1] flagged, status[1] stepped
+  );
+  integer tile_int;
+  always @(*) begin: ini_status
+  status = 3'b0; //initialize status to be 000
+    case (tile_n)
+      000000, 000001, 000010, 000011, 000100, 000101, 000110, 000111, 001000, 001001, 001010, 001011, 001100, 001101, 001110, 001111, 010000, 010001, 010010, 010011, 010100, 010101, 010110, 010111, 011000, 011001, 011010, 011011, 011100, 011101, 011110, 011111, 100000, 100001, 100010, 100011, 100100, 100101, 100110, 100111, 101000, 101001, 101010, 101011, 101100, 101101, 101110, 101111, 110000, 110001, 110010, 110011, 110100, 110101, 110110, 110111, 111000, 111001, 111010, 111011, 111100, 111101, 111110, 111111:
+      begin
+        tile_int = tile_n;
+        status[2] = mineMap[tile_int];
+        status[1] = flagMap[tile_int];
+        status[0] = stepMap[tile_int];
+      end
+    endcase
+  end
+endmodule
+
+module gameboard_shape(
   input clk,
   input load_x, load_y, reset, load_c, en_c, shape_drawn,
   input [7:0] x_in,
@@ -76,22 +106,37 @@ module gameboard_datapath(
 
   wire en_y;
   wire reset_count;
+  wire [7:0] x_origin;
+  wire [6:0] y_origin;
   wire [4:0] x_count_out;
   wire [3:0] y_count_out;
+  wire [5:0] tile_count_out;
   assign en_y = ~x_count_out[0] & // should increment y when x = 18
                  x_count_out[1] &
                 ~x_count_out[2] &
                 ~x_count_out[3] &
                  x_count_out[4];
-  assign reset_count =  y_count_out[0] & // should reset itself when y = 13
+  assign reset_count =  ~y_count_out[0] & // should reset itself when y = 13
                        ~y_count_out[1] &
                         y_count_out[2] &
-                        y_count_out[3];
+                        y_count_out[3] &
+                        ~x_count_out[0] & // should increment y when x = 18
+                         x_count_out[1] &
+                        ~x_count_out[2] &
+                        ~x_count_out[3] &
+                         x_count_out[4];
 
   assign shape_drawn = reset_count;
 
-  assign x_out = x_in + {3'b00, x_count_out};
-  assign y_out = y_in + {3'b00, y_count_out};
+  assign x_out = x_origin + {2'b00, x_count_out};
+  assign y_out = y_origin + {3'b00, y_count_out};
+
+tile_position tp(
+  .tile(tile_count_out),
+  .x(x_origin),
+  .y(y_origin)
+  );
+
 // x and y counters  19 x 14
   x_counter xc(
     .clk(clk),
@@ -109,6 +154,14 @@ module gameboard_datapath(
     .en(en_y),
     .y_in(4'b000),
     .y_out(y_count_out)
+    );
+
+  tile_counter tilec(
+    .clk(clk),
+    .load_tile(load_tile),
+    .reset(reset),
+    .en(reset_count),
+    .tile_out(tile_count_out)
     );
 endmodule
 
@@ -150,284 +203,19 @@ module y_counter(
 	end
 endmodule
 
-module tile_control(
-  input clk,
-  input resetn,
-  input go,
-  input [63:0] mineMap,
-  input [63:0] flagMap,
-  input [63:0] stepMap,
-
-  output reg ld_x, ld_y, ld_color, // probably don't need these
-  output reg en_c,
-  output reg writeEn,
-  output reg [7:0] x,
-  output reg [6:0] y,
-  output reg [2:0] color);
-
-  reg [5:0] current_state, next_state;
-
-  localparam  S_CYCLE_0   = 6'd0,  S_CYCLE_1   = 6'd1,
-              S_CYCLE_2   = 6'd2,  S_CYCLE_3   = 6'd3,
-              S_CYCLE_4   = 6'd4,  S_CYCLE_5   = 6'd5,
-              S_CYCLE_6   = 6'd6,  S_CYCLE_7   = 6'd7,
-              S_CYCLE_8   = 6'd8,  S_CYCLE_9   = 6'd9,
-              S_CYCLE_10  = 6'd10, S_CYCLE_11  = 6'd11,
-              S_CYCLE_12  = 6'd12, S_CYCLE_13  = 6'd13,
-              S_CYCLE_14  = 6'd14, S_CYCLE_15  = 6'd15,
-              S_CYCLE_16  = 6'd16, S_CYCLE_17  = 6'd17,
-              S_CYCLE_18  = 6'd18, S_CYCLE_19  = 6'd19,
-              S_CYCLE_20  = 6'd20, S_CYCLE_21  = 6'd21,
-              S_CYCLE_22  = 6'd22, S_CYCLE_23  = 6'd23,
-              S_CYCLE_24  = 6'd24, S_CYCLE_25  = 6'd25,
-              S_CYCLE_26  = 6'd26, S_CYCLE_27  = 6'd27,
-              S_CYCLE_28  = 6'd28, S_CYCLE_29  = 6'd29,
-              S_CYCLE_30  = 6'd30, S_CYCLE_31  = 6'd31,
-              S_CYCLE_32  = 6'd32, S_CYCLE_33  = 6'd33,
-              S_CYCLE_34  = 6'd34, S_CYCLE_35  = 6'd35,
-              S_CYCLE_36  = 6'd36, S_CYCLE_37  = 6'd37,
-              S_CYCLE_38  = 6'd38, S_CYCLE_39  = 6'd39,
-              S_CYCLE_40  = 6'd40, S_CYCLE_41  = 6'd41,
-              S_CYCLE_42  = 6'd42, S_CYCLE_43  = 6'd43,
-              S_CYCLE_44  = 6'd44, S_CYCLE_45  = 6'd45,
-              S_CYCLE_46  = 6'd46, S_CYCLE_47  = 6'd47,
-              S_CYCLE_48  = 6'd48, S_CYCLE_49  = 6'd49,
-              S_CYCLE_50  = 6'd50, S_CYCLE_51  = 6'd51,
-              S_CYCLE_52  = 6'd52, S_CYCLE_53  = 6'd53,
-              S_CYCLE_54  = 6'd54, S_CYCLE_55  = 6'd55,
-              S_CYCLE_56  = 6'd56, S_CYCLE_57  = 6'd57,
-              S_CYCLE_58  = 6'd58, S_CYCLE_59  = 6'd59,
-              S_CYCLE_60  = 6'd60, S_CYCLE_61  = 6'd61,
-              S_CYCLE_62  = 6'd62, S_CYCLE_63  = 6'd63;
-
-  // Next state logic aka our state table
-  always@(*)
-  begin: state_table
-    case (current_state)
-      S_CYCLE_0: next_state = go ? S_CYCLE_1  : S_CYCLE_0;
-      S_CYCLE_1: next_state = go ? S_CYCLE_2  : S_CYCLE_1;
-      S_CYCLE_2: next_state = go ? S_CYCLE_3  : S_CYCLE_2;
-      S_CYCLE_3: next_state = go ? S_CYCLE_4  : S_CYCLE_3;
-      S_CYCLE_4: next_state = go ? S_CYCLE_5  : S_CYCLE_4;
-      S_CYCLE_5: next_state = go ? S_CYCLE_6  : S_CYCLE_5;
-      S_CYCLE_6: next_state = go ? S_CYCLE_7  : S_CYCLE_6;
-      S_CYCLE_7: next_state = go ? S_CYCLE_8  : S_CYCLE_7;
-      S_CYCLE_8: next_state = go ? S_CYCLE_9  : S_CYCLE_8;
-      S_CYCLE_9: next_state = go ? S_CYCLE_10 : S_CYCLE_9;
-      S_CYCLE_10:next_state = go ? S_CYCLE_11 : S_CYCLE_10;
-      S_CYCLE_11:next_state = go ? S_CYCLE_12 : S_CYCLE_11;
-      S_CYCLE_12:next_state = go ? S_CYCLE_13 : S_CYCLE_12;
-      S_CYCLE_13:next_state = go ? S_CYCLE_14 : S_CYCLE_13;
-      S_CYCLE_14:next_state = go ? S_CYCLE_15 : S_CYCLE_14;
-      S_CYCLE_15:next_state = go ? S_CYCLE_16 : S_CYCLE_15;
-      S_CYCLE_16:next_state = go ? S_CYCLE_17 : S_CYCLE_16;
-      S_CYCLE_17:next_state = go ? S_CYCLE_18 : S_CYCLE_17;
-      S_CYCLE_18:next_state = go ? S_CYCLE_19 : S_CYCLE_18;
-      S_CYCLE_19:next_state = go ? S_CYCLE_20 : S_CYCLE_19;
-      S_CYCLE_20:next_state = go ? S_CYCLE_21 : S_CYCLE_20;
-      S_CYCLE_21:next_state = go ? S_CYCLE_22 : S_CYCLE_21;
-      S_CYCLE_22:next_state = go ? S_CYCLE_23 : S_CYCLE_22;
-      S_CYCLE_23:next_state = go ? S_CYCLE_24 : S_CYCLE_23;
-      S_CYCLE_24:next_state = go ? S_CYCLE_25 : S_CYCLE_24;
-      S_CYCLE_25:next_state = go ? S_CYCLE_26 : S_CYCLE_25;
-      S_CYCLE_26:next_state = go ? S_CYCLE_27 : S_CYCLE_26;
-      S_CYCLE_27:next_state = go ? S_CYCLE_28 : S_CYCLE_27;
-      S_CYCLE_28:next_state = go ? S_CYCLE_29 : S_CYCLE_28;
-      S_CYCLE_29:next_state = go ? S_CYCLE_30 : S_CYCLE_29;
-      S_CYCLE_30:next_state = go ? S_CYCLE_31 : S_CYCLE_30;
-      S_CYCLE_31:next_state = go ? S_CYCLE_32 : S_CYCLE_31;
-      S_CYCLE_32:next_state = go ? S_CYCLE_33 : S_CYCLE_32;
-      S_CYCLE_33:next_state = go ? S_CYCLE_34 : S_CYCLE_33;
-      S_CYCLE_34:next_state = go ? S_CYCLE_35 : S_CYCLE_34;
-      S_CYCLE_35:next_state = go ? S_CYCLE_36 : S_CYCLE_35;
-      S_CYCLE_36:next_state = go ? S_CYCLE_37 : S_CYCLE_36;
-      S_CYCLE_37:next_state = go ? S_CYCLE_38 : S_CYCLE_37;
-      S_CYCLE_38:next_state = go ? S_CYCLE_39 : S_CYCLE_38;
-      S_CYCLE_39:next_state = go ? S_CYCLE_40 : S_CYCLE_39;
-      S_CYCLE_40:next_state = go ? S_CYCLE_41 : S_CYCLE_40;
-      S_CYCLE_41:next_state = go ? S_CYCLE_42 : S_CYCLE_41;
-      S_CYCLE_42:next_state = go ? S_CYCLE_43 : S_CYCLE_42;
-      S_CYCLE_43:next_state = go ? S_CYCLE_44 : S_CYCLE_43;
-      S_CYCLE_44:next_state = go ? S_CYCLE_45 : S_CYCLE_44;
-      S_CYCLE_45:next_state = go ? S_CYCLE_46 : S_CYCLE_45;
-      S_CYCLE_46:next_state = go ? S_CYCLE_47 : S_CYCLE_46;
-      S_CYCLE_47:next_state = go ? S_CYCLE_48 : S_CYCLE_47;
-      S_CYCLE_48:next_state = go ? S_CYCLE_49 : S_CYCLE_48;
-      S_CYCLE_49:next_state = go ? S_CYCLE_50 : S_CYCLE_49;
-      S_CYCLE_50:next_state = go ? S_CYCLE_51 : S_CYCLE_50;
-      S_CYCLE_51:next_state = go ? S_CYCLE_52 : S_CYCLE_51;
-      S_CYCLE_52:next_state = go ? S_CYCLE_53 : S_CYCLE_52;
-      S_CYCLE_53:next_state = go ? S_CYCLE_54 : S_CYCLE_53;
-      S_CYCLE_54:next_state = go ? S_CYCLE_55 : S_CYCLE_54;
-      S_CYCLE_55:next_state = go ? S_CYCLE_56 : S_CYCLE_55;
-      S_CYCLE_56:next_state = go ? S_CYCLE_57 : S_CYCLE_56;
-      S_CYCLE_57:next_state = go ? S_CYCLE_58 : S_CYCLE_57;
-      S_CYCLE_58:next_state = go ? S_CYCLE_59 : S_CYCLE_58;
-      S_CYCLE_59:next_state = go ? S_CYCLE_60 : S_CYCLE_59;
-      S_CYCLE_60:next_state = go ? S_CYCLE_61 : S_CYCLE_60;
-      S_CYCLE_61:next_state = go ? S_CYCLE_62 : S_CYCLE_61;
-      S_CYCLE_62:next_state = go ? S_CYCLE_63 : S_CYCLE_62;
-      S_CYCLE_63:next_state = go ? S_CYCLE_0 : S_CYCLE_63;
-
-      default: next_state = S_CYCLE_0;
-    endcase
-  end
-
-  // Output logic aka all of our datapath control signals
-  always @(*)
-  begin: enable_signals
-    // By default make all our signals 0
-    ld_x = 1'b0;
-    ld_y = 1'b0;
-    x = 8'b00000000;
-    y = 7'b0000000;
-    color = 3'b000;
-		en_c = 1'b0;
-    ld_color = 1'b0;
-    writeEn = 1'b0;
-
-    case (current_state)
-      S_CYCLE_0: begin
-        x = 8'b00000000;
-        y = 7'b0000000;
-        en_c = 1'b1;
-        if(flagMap[0]) begin
-          color = 3'b010;
-        end
+module tile_counter(
+	input clk,
+	input load_tile, reset, en,
+	output reg [5:0] tile_out
+	);
+	always @(posedge clk) begin
+		if (!reset) begin
+			tile_out <= 6'b0;
       end
-      S_CYCLE_1: begin
-      end
-      S_CYCLE_2: begin
-      end
-      S_CYCLE_3: begin
-      end
-      S_CYCLE_4: begin
-      end
-      S_CYCLE_5: begin
-      end
-      S_CYCLE_6: begin
-      end
-      S_CYCLE_7: begin
-      end
-      S_CYCLE_8: begin
-      end
-      S_CYCLE_9: begin
-      end
-      S_CYCLE_10: begin
-      end
-      S_CYCLE_11: begin
-      end
-      S_CYCLE_12: begin
-      end
-      S_CYCLE_13: begin
-      end
-      S_CYCLE_14: begin
-      end
-      S_CYCLE_15: begin
-      end
-      S_CYCLE_16: begin
-      end
-      S_CYCLE_17: begin
-      end
-      S_CYCLE_18: begin
-      end
-      S_CYCLE_19: begin
-      end
-      S_CYCLE_20: begin
-      end
-      S_CYCLE_21: begin
-      end
-      S_CYCLE_22: begin
-      end
-      S_CYCLE_23: begin
-      end
-      S_CYCLE_24: begin
-      end
-      S_CYCLE_25: begin
-      end
-      S_CYCLE_26: begin
-      end
-      S_CYCLE_27: begin
-      end
-      S_CYCLE_28: begin
-      end
-      S_CYCLE_29: begin
-      end
-      S_CYCLE_30: begin
-      end
-      S_CYCLE_31: begin
-      end
-      S_CYCLE_32: begin
-      end
-      S_CYCLE_33: begin
-      end
-      S_CYCLE_34: begin
-      end
-      S_CYCLE_35: begin
-      end
-      S_CYCLE_36: begin
-      end
-      S_CYCLE_37: begin
-      end
-      S_CYCLE_38: begin
-      end
-      S_CYCLE_39: begin
-      end
-      S_CYCLE_40: begin
-      end
-      S_CYCLE_41: begin
-      end
-      S_CYCLE_42: begin
-      end
-      S_CYCLE_43: begin
-      end
-      S_CYCLE_44: begin
-      end
-      S_CYCLE_45: begin
-      end
-      S_CYCLE_46: begin
-      end
-      S_CYCLE_47: begin
-      end
-      S_CYCLE_48: begin
-      end
-      S_CYCLE_49: begin
-      end
-      S_CYCLE_50: begin
-      end
-      S_CYCLE_51: begin
-      end
-      S_CYCLE_52: begin
-      end
-      S_CYCLE_53: begin
-      end
-      S_CYCLE_54: begin
-      end S_CYCLE_55: begin
-      end
-      S_CYCLE_56: begin
-      end
-      S_CYCLE_57: begin
-      end
-      S_CYCLE_58: begin
-      end
-      S_CYCLE_59: begin
-      end
-      S_CYCLE_60: begin
-      end
-      S_CYCLE_61: begin
-      end
-      S_CYCLE_62: begin
-      end
-      S_CYCLE_63: begin
-      end
-    endcase
-  end
-
-  always@(posedge clk)
-  begin: state_FFs
-    if(!resetn)
-      current_state <= S_LOAD;
+		else if (en) begin
+				tile_out <= tile_out + 1;
+		end
     else
-      current_state <= next_state;
-  end
-  endmodule
+      tile_out <= tile_out;
+	end
+endmodule
