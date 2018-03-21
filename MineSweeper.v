@@ -14,6 +14,10 @@ module MineSweeper(
     output [9:0] VGA_B     // VGA Blue[9:0]
   );
 
+    wire en;
+    wire [7:0] x;
+ 	  wire [6:0] y;
+ 	  wire [2:0] color;
     wire resetn;
     assign resetn = KEY[0];
 
@@ -28,7 +32,7 @@ module MineSweeper(
       .colour(color),
       .x(x),
       .y(y),
-      .plot(writeEn),
+      .plot(en),
       // Signals for the DAC to drive the monitor
       .VGA_R(VGA_R),
       .VGA_G(VGA_G),
@@ -48,10 +52,6 @@ module MineSweeper(
     wire [63:0] mineMap;
     wire [63:0] flagMap;
     wire [63:0] stepMap;
-    wire en;
-	 wire [7:0] x;
-	 wire [6:0] y;
-	 wire [2:0] color;
 
     assign mineMap = SW;
     assign flagMap = 64'b0;
