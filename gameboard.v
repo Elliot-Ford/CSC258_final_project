@@ -15,7 +15,7 @@ module gameboard(
   wire [5:0] tile_n;
   wire [4:0] x_count;
   wire [3:0] y_count;
-  assign en = 1;
+  assign en = 1'b1;
   // assign color = status;
   tile_report tr(
     .tile_n(tile_n),
@@ -49,20 +49,31 @@ module pixel_color(
   input [3:0] status,
   input [4:0] x,
   input [3:0] y,
-  output reg [2:0] color
+  output reg[2:0] color
   );
-
+  
   always @(*)
   begin
-    if(status[3] == 1'b1 && (((x < 5 || x > 13) && (y == 0 || y == 13))
-      || ((x == 0 || x == 18)&& (y < 5 || y > 9))))
-      color = 3'b011;
+    if(status[3] == 1'b1)
+		if(((x < 5 || x > 13) && (y == 0 || y == 13)) || ((x == 0 || x == 18)&& (y < 5 || y > 9)))
+			color = 3'b011;
+		else 
+			color = 3'b000;
     else if (status[0] == 1'b1 && status[2] == 1'b1)
       color = 3'b100;
     else if (status[0] == 1'b1)
       color = 3'b010;
     else if (status[1] == 1'b1)
-      color = 3'b101;
+		if((x > 7 && x < 11 && y == 3) || 
+		   (x > 6 && x < 11 && y == 4) || 
+			(x > 5 && x < 11 && y == 5) || 
+			(x > 5 && x < 10 && y == 6) || 
+			(x > 5 && x < 9 && y == 7))
+			color = 3'b100;
+		else if(x == 10 && y > 5 && y < 12)
+			color = 3'b111;
+		else
+			color = 3'b000;
     else
       color = 3'b000;
   end
@@ -88,17 +99,11 @@ module tile_report(
   input [63:0] stepMap,
   input [63:0] posMap,
 
-  output reg [3:0] status // status[2] mined, status[1] flagged, status[1] stepped
+  output [3:0] status // status[3] position, status[2] mined, status[1] flagged, status[1] stepped
   );
-  integer tile_int;
-  always @(*) begin: ini_status
-  status = 4'b0; //initialize status to be 000
-        tile_int = tile_n;
-        status[3] = posMap[tile_int];
-        status[2] = mineMap[tile_int];
-        status[1] = flagMap[tile_int];
-        status[0] = stepMap[tile_int];
-  end
+
+  
+  assign status = {posMap[tile_n], mineMap[tile_n], flagMap[tile_n], stepMap[tile_n]};
 endmodule
 
 module gameboard_shape(
@@ -120,7 +125,7 @@ module gameboard_shape(
                 ~x_count[2] &
                 ~x_count[3] &
                  x_count[4];
-  assign reset_count =  ~y_count[0] & // should reset itself when y = 13
+  assign reset_count =  y_count[0] & // should reset itself when y = 13
                        ~y_count[1] &
                         y_count[2] &
                         y_count[3] &
