@@ -178,7 +178,7 @@ module x_counter(
 			x_out <= x_in;
       end
 		else if (en) begin
-				x_out <= x_out + 1;
+				x_out <= x_out + 1'b1;
 		end
 	end
 endmodule
@@ -197,7 +197,7 @@ module y_counter(
 			y_out <= 0;
       end
 		else if (en) begin
-				y_out <= y_out + 1;
+				y_out <= y_out + 1'b1;;
 		end
 	end
 endmodule
@@ -211,6 +211,6 @@ module tile_counter(
 		if (!reset)
 			tile_out <= 6'b0;
 		else if (en)
-				tile_out <= tile_out + 1;
+				tile_out <= tile_out + 1'b1;
   end
 endmodule

@@ -43,19 +43,20 @@ module MineSweeper(
       .VGA_SYNC(VGA_SYNC_N),
       .VGA_CLK(VGA_CLK)
     );
-    defparam VGA.RESOLUTION = "160X120";
+    defparam VGA.RESOLUTION = "160x120";
     defparam VGA.MONOCHROME = "FALSE";
-    defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
     defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
     defparam VGA.BACKGROUND_IMAGE = "gameboard.mif";
 
     wire [63:0] mineMap;
     wire [63:0] flagMap;
     wire [63:0] stepMap;
+    wire [63:0] posMap;
 
     assign mineMap = SW;
     assign flagMap = 64'b0;
     assign stepMap = 64'b0;
+    assign posMap = 64'b0;
 
     gameboard gm(
       .clk(CLOCK_50),
@@ -63,6 +64,7 @@ module MineSweeper(
       .mineMap(mineMap),
       .flagMap(flagMap),
       .stepMap(stepMap),
+      .posMap(posMap),
       .x(x),
       .y(y),
       .color(color),
