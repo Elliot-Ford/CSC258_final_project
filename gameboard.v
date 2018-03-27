@@ -54,13 +54,20 @@ module pixel_color(
   
   always @(*)
   begin
-    if(status[3] == 1'b1)
-		if(((x < 5 || x > 13) && (y == 0 || y == 13)) || ((x == 0 || x == 18)&& (y < 5 || y > 9)))
+    if(status[3] == 1'b1 && ((x < 5 || x > 13) && (y == 0 || y == 13)) || ((x == 0 || x == 18)&& (y < 5 || y > 9)))
 			color = 3'b011;
 		else 
 			color = 3'b000;
-    else if (status[0] == 1'b1 && status[2] == 1'b1)
-      color = 3'b100;
+    else if (status[0] == 1'b1 && status[2] == 1'b1) // this isn't working yet
+      if((x == 9 && (y == 2 || y == 12)) && 
+			  ((x == 5 || x == 13 || (x > 6 && x < 12)) && (y == 3 || y == 11)) &&
+			   (x > 5 && x < 13 && (y == 4 || y == 10)) &&
+				(x > 4 && x < 7 && x > 9 && x < 14 && (y == 5 || y == 6)) &&
+				(x > 4 && x < 14 && (y == 9 || y == 8)) &&
+				(x > 3 && x < 15 && y == 7))
+				color = 3'b000;
+			else
+				color = 3'b111;
     else if (status[0] == 1'b1)
       color = 3'b010;
     else if (status[1] == 1'b1)
