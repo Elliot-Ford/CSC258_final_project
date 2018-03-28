@@ -11,13 +11,13 @@ module gameboard(
   output [0:0] en
   );
 
-  wire [3:0] status;
+  wire [7:0] status;
   wire [5:0] tile_n;
   wire [4:0] x_count;
   wire [3:0] y_count;
   assign en = 1'b1;
   // assign color = status;
-  tile_report tr(
+  tile_report tr0(
     .tile_n(tile_n),
     .mineMap(mineMap),
     .flagMap(flagMap),
@@ -25,6 +25,7 @@ module gameboard(
     .posMap(posMap),
     .status(status)
     );
+	 
 
     pixel_color pc(
       .status(status),
@@ -46,7 +47,7 @@ module gameboard(
 endmodule
 
 module pixel_color(
-  input [3:0] status,
+  input [7:0] status,
   input [4:0] x,
   input [3:0] y,
   output reg[2:0] color
@@ -54,23 +55,33 @@ module pixel_color(
   
   always @(*)
   begin
-    if(status[3] == 1'b1 && ((x < 5 || x > 13) && (y == 0 || y == 13)) || ((x == 0 || x == 18)&& (y < 5 || y > 9)))
+    if(status[3] == 1'b1 && 
+	   (((x < 5 || x > 13) && (y == 0 || y == 13)) || ((x == 0 || x == 18)&& (y < 5 || y > 9)))) // position selector
 			color = 3'b011;
-		else 
+    else if (status[0] == 1'b1 && status[2] == 1'b1) begin // this isn't working yet (mine)
+      if((x == 9 && (y == 2 || y == 12)) || 
+			((x == 5 || x == 13 || (x > 6 && x < 12)) && (y == 3 || y == 11)) ||
+			(x > 5 && x < 13 && (y == 4 || y == 10)) ||
+			(((x > 4 && x < 7) || (x > 8 && x < 14)) && (y == 5 || y == 6)) ||
+			(x > 4 && x < 14 && (y == 9 || y == 8)) ||
+			(x > 3 && x < 15 && y == 7))
 			color = 3'b000;
-    else if (status[0] == 1'b1 && status[2] == 1'b1) // this isn't working yet
-      if((x == 9 && (y == 2 || y == 12)) && 
-			  ((x == 5 || x == 13 || (x > 6 && x < 12)) && (y == 3 || y == 11)) &&
-			   (x > 5 && x < 13 && (y == 4 || y == 10)) &&
-				(x > 4 && x < 7 && x > 9 && x < 14 && (y == 5 || y == 6)) &&
-				(x > 4 && x < 14 && (y == 9 || y == 8)) &&
-				(x > 3 && x < 15 && y == 7))
-				color = 3'b000;
-			else
-				color = 3'b111;
-    else if (status[0] == 1'b1)
-      color = 3'b010;
-    else if (status[1] == 1'b1)
+		else
+			color = 3'b111;
+	 end
+    else if (status[0] == 1'b1) // revealed tile
+		if((status[7:4] >= 4'd1 && x == 2 && y == 2) ||
+			(status[7:4] >= 4'd2 && x == 4 && y == 2) ||
+			(status[7:4] >= 4'd3 && x == 6 && y == 2) ||
+			(status[7:4] >= 4'd4 && x == 8 && y == 2) ||
+			(status[7:4] >= 4'd5 && x == 2 && y == 4) ||
+			(status[7:4] >= 4'd6 && x == 4 && y == 4) ||
+			(status[7:4] >= 4'd7 && x == 6 && y == 4) ||
+			(status[7:4] >= 4'd8 && x == 8 && y == 4))
+			color = 3'b101;
+		else
+			color = 3'b010;
+    else if (status[1] == 1'b1) // flag
 		if((x > 7 && x < 11 && y == 3) || 
 		   (x > 6 && x < 11 && y == 4) || 
 			(x > 5 && x < 11 && y == 5) || 
@@ -81,7 +92,7 @@ module pixel_color(
 			color = 3'b111;
 		else
 			color = 3'b000;
-    else
+    else // otherwise we want to make the pixel black
       color = 3'b000;
   end
 
@@ -106,11 +117,23 @@ module tile_report(
   input [63:0] stepMap,
   input [63:0] posMap,
 
-  output [3:0] status // status[3] position, status[2] mined, status[1] flagged, status[1] stepped
+  output [7:0] status // status[3] position, status[2] mined, status[1] flagged, status[1] stepped
   );
-
   
-  assign status = {posMap[tile_n], mineMap[tile_n], flagMap[tile_n], stepMap[tile_n]};
+	wire [3:0] surrounding_mines = mineMap[tile_n-1'b1] +
+											mineMap[tile_n+1'b1] + 
+											mineMap[tile_n+3'd7] +
+											mineMap[tile_n-3'd7] +
+											mineMap[tile_n+4'd8] + 
+											mineMap[tile_n-4'd8] +
+											mineMap[tile_n+4'd9] +
+											mineMap[tile_n-4'd9];
+	assign status = {surrounding_mines,
+							posMap[tile_n],
+							mineMap[tile_n],
+							flagMap[tile_n],
+							stepMap[tile_n]};
+  
 endmodule
 
 module gameboard_shape(
@@ -143,7 +166,7 @@ module gameboard_shape(
                          x_count[4];
 
   assign x_out = x_origin + {2'b00, x_count};
-  assign y_out = y_origin + {3'b00, y_count};
+  assign y_out = y_origin + {3'b000, y_count};
 
 tile_position tp(
   .tile(tile_n),
@@ -164,7 +187,7 @@ tile_position tp(
     .clk(clk),
     .reset(reset & ~ reset_count),
     .en(en_y),
-    .y_in(4'b000),
+    .y_in(4'b0000),
     .y_out(y_count)
     );
 
