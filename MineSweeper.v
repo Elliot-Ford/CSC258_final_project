@@ -50,6 +50,7 @@ module MineSweeper(
     defparam VGA.BACKGROUND_IMAGE = "gameboard.mif";
 
     wire [63:0] mineMap;
+    wire [63:0] mineMapIn;
     wire [63:0] flagMap;
     wire [63:0] stepMap;
     wire [63:0] posMap;
@@ -75,7 +76,7 @@ module MineSweeper(
       .ldMM(SW[0]),
       .ldFM(~KEY[3]),
       .ldSM(~KEY[2]),
-      .MMin(64'b100000000000000000000000010101000000110000100100000000000000001),
+      .MMin(mineMapIn),
       .dir(~KEY[1:0]),
       .win(LEDR[0]),
       .lose(LEDR[1]),
@@ -85,6 +86,12 @@ module MineSweeper(
       .PMout(posMap)
       );
 
+    generate_mine gm(
+      .clk(CLOCK_50),
+      .resetn(resetn),
+      .en(1'b1),
+      .mineOut(mineMapIn)
+      );
 
 
 
