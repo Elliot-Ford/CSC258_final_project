@@ -2,6 +2,7 @@ module datapath(
 	input clk,
 	input resetn,
 	input ldMM,
+  input ldMMtoSM,
   input ldFM,
   input ldSM,
 	input [63:0] MMin,
@@ -28,7 +29,7 @@ module datapath(
 		.resetn(resetn),
 		.ld(1'b1),
 		//.map_in(64'b1),
-		.map_in(PMout | SMout),
+		.map_in(~ldMMtoSM * (PMout | SMout) | ldMMtoSM * (MMout)),
 		.map_out(SMout));
 	map_register MM(      // Mine Map
 		.clk(clk),
