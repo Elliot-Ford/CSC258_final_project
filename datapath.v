@@ -17,14 +17,14 @@ module datapath(
 	wire PM_EN;
 
 	map_register FM(     // Flag Map
-		.clk(ldFM),
+		.clk(~(win | lose) && ldFM),
 		.resetn(resetn),
 		.ld(1'b1),
 		//.map_in(64'b10),
 		.map_in(PMout ^ FMout),
 		.map_out(FMout));
 	map_register SM(     // Step Map
-		.clk(ldSM && (((PMout | SMout) & FMout) == 64'b0)),
+		.clk(~(win | lose) && ldSM && (((PMout | SMout) & FMout) == 64'b0)),
 		.resetn(resetn),
 		.ld(1'b1),
 		//.map_in(64'b1),
@@ -44,11 +44,11 @@ module datapath(
 //		.out(PMout));
 
 	posMap_register PM(  // Postion Map
-		.clk(PM_EN),
+		.clk(~(win | lose) && PM_EN),
 		.resetn(resetn),
 		.en(dir),
 		.out(PMout));
-		
+
 //	map_shift_reg posMap_reg(
 //	 	.d(dir[0]),
 //	 	.en(1'b1),
@@ -56,11 +56,11 @@ module datapath(
 //	 	.clk(dir[1]),
 //	 	.out(PMout)
 //	 	);
-	
+
 	rate_divider rd0(  // Rate divider for Postion Map
 		.clk(clk),
 		.resetn(resetn),
-		.en(1'b1),
+		.en(~(win | lose) && 1'b1),
 		.clk_out(PM_EN));
 
   assign win = (MMout == FMout) ? 1'b1 : 1'b0;
@@ -89,7 +89,7 @@ endmodule
 module rate_divider(
 	input clk, resetn, en,
 	output reg clk_out);
-	
+
 	reg [23:0] divider;
 	always @(posedge clk)
 	begin
@@ -121,5 +121,3 @@ module map_register(
 			map_out <= map_out;
 	end
 endmodule
-
-
