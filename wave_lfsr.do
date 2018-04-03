@@ -1,6 +1,6 @@
 vlib work
 vlog -timescale 1ns/1ns MineSweeper.v
-vsim lfsr
+vsim generate_mine
 
 log {/*}
 add wave {/*}
