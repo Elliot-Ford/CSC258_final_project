@@ -92,19 +92,97 @@ module MineSweeper(
 
 endmodule
 
+module generate_mine(
+  input clk, resetn, en,
+  output reg [63:0] mineOut
+  );
+  wire [5:0] index0, index1, index2, index3, index4, index5, index6, index7;
+  lfsr r0(
+    .clk(clk),
+    .resetn(resetn),
+    .en(en),
+    .init(6'b000000),
+    .out(index0)
+    );
+  lfsr r1(
+    .clk(clk),
+    .resetn(resetn),
+    .en(en),
+    .init(6'b000001),
+    .out(index1)
+    );
+  lfsr r2(
+    .clk(clk),
+    .resetn(resetn),
+    .en(en),
+    .init(6'b000010),
+    .out(index2)
+    );
+  lfsr r3(
+    .clk(clk),
+    .resetn(resetn),
+    .en(en),
+    .init(6'b000011),
+    .out(index3)
+    );
+  lfsr r4(
+    .clk(clk),
+    .resetn(resetn),
+    .en(en),
+    .init(6'b000100),
+    .out(index4)
+    );
+  lfsr r5(
+    .clk(clk),
+    .resetn(resetn),
+    .en(en),
+    .init(6'b000101),
+    .out(index5)
+    );
+  lfsr r6(
+    .clk(clk),
+    .resetn(resetn),
+    .en(en),
+    .init(6'b000110),
+    .out(index6)
+    );
+  lfsr r7(
+    .clk(clk),
+    .resetn(resetn),
+    .en(en),
+    .init(6'b000111),
+    .out(index7)
+    );
+  always @(posedge clk, negedge resetn)
+  begin
+    if (!resetn)
+      mineOut <= 64'b0;
+    else
+      mineOut[index0] <= 1;
+      mineOut[index1] <= 1;
+      mineOut[index2] <= 1;
+      mineOut[index3] <= 1;
+      mineOut[index4] <= 1;
+      mineOut[index5] <= 1;
+      mineOut[index6] <= 1;
+      mineOut[index6] <= 1;
+  end
+endmodule
+
 module lfsr(
   input clk, resetn, en,
-  output reg [63:0] out
+  input [5:0] init,
+  output reg [5:0] out
   );
   wire feedback;
-  assign feedback = ~(out[63] ^ out[62] ^ out[60] ^ out[59]);
+  assign feedback = ~(out[6] ^ out[5]);
 
   always @(posedge clk, negedge resetn)
   begin
     if (!resetn)
-      out <= 64'b0;
+      out <= init;
     else if (en)
-      out <= {out[62:0], feedback};
+      out <= {out[5:0], feedback};
     else
       out <= out;
   end
