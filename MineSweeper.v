@@ -91,3 +91,21 @@ module MineSweeper(
 
 
 endmodule
+
+module lfsr(
+  input clk, resetn, en,
+  output reg [63:0] out
+  );
+  wire feedback;
+  assign feedback = ~(out[63] ^ out[62] ^ out[60] ^ out[59]);
+
+  always @(posedge clk, negedge resetn)
+  begin
+    if (!resetn)
+      out <= 64'b0;
+    else if (en)
+      out <= {out[62:0], feedback};
+    else
+      out <= out;
+  end
+endmodule
