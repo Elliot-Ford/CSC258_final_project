@@ -158,6 +158,7 @@ module generate_mine(
     if (!resetn)
       mineOut <= 64'b0;
     else
+      mineOut <= 64'b0;
       mineOut[index0] <= 1;
       mineOut[index1] <= 1;
       mineOut[index2] <= 1;
@@ -165,7 +166,7 @@ module generate_mine(
       mineOut[index4] <= 1;
       mineOut[index5] <= 1;
       mineOut[index6] <= 1;
-      mineOut[index6] <= 1;
+      mineOut[index7] <= 1;
   end
 endmodule
 
@@ -175,14 +176,14 @@ module lfsr(
   output reg [5:0] out
   );
   wire feedback;
-  assign feedback = ~(out[6] ^ out[5]);
+  assign feedback = ~(out[5] ^ out[4]);
 
   always @(posedge clk, negedge resetn)
   begin
     if (!resetn)
       out <= init;
     else if (en)
-      out <= {out[5:0], feedback};
+      out <= {out[4:0], feedback};
     else
       out <= out;
   end
